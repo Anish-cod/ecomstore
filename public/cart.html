@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple E-commerce Site</title>
+    <title>Cart Page</title>
     <link rel="stylesheet" href="css/styles.css">
     <style>
         .product {
@@ -12,6 +12,14 @@
             margin-bottom: 10px;
             border-radius: 5px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+        }
+        img {
+            max-width: 100%;
         }
     </style>
 </head>
@@ -31,16 +39,15 @@
                 <li><a href="account.html">Account</a></li>
             </ul>
         </nav>
-        <a href="cart.html"><img src="https://i.ibb.co/PNjjx3y/cart.png" alt="" width="30px" height="30px" color = "white"></a>
+        <a href="cart.html"><img src="https://i.ibb.co/PNjjx3y/cart.png" alt="" width="30px" height="30px"></a>
         <img src="https://i.ibb.co/6XbqwjD/menu.png" alt="" class="menu-icon" onclick="menutoggle()">
     </div>
 </div>
 
-<div class="small-container">
-    <h2>All Products</h2>
-    <div class="row" id="product-list">
-        <!-- Dynamically generated product listings will appear here -->
-    </div>
+<div class="container">
+    <h2>Your Cart</h2>
+    <div id="cart-items"></div>
+    <button onclick="checkout()">Checkout</button>
 </div>
 
 <div class="footer">
@@ -71,14 +78,14 @@
                 <h3>Follow us</h3>
                 <ul>
                     <li>Facebook</li>
-                    <li>Twitter</li>
+                    <li>Twitter</li
                     <li>Instagram</li>
                     <li>YouTube</li>
                 </ul>
             </div>
         </div>
         <hr>
-        <p class="copyright">Copyright © 2021 - SAGE ART</p>
+        <p copyright">Copyright © 2021 - SAGE ART</p>
     </div>
 </div>
 
@@ -95,44 +102,69 @@ function menutoggle() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    fetch('http://localhost:3000/products')
+    fetchCartItems();
+});
+
+function fetchCartItems() {
+    fetch('http://localhost:3000/cart')
     .then(response => {
         if (!response.ok) {
-            throw new Error('Network response was not ok: ' + response.statusText);
+            throw new Error('Network response was not OK');
+        }
+        return response.json();
+    })
+    .then(items => {
+        const cartContainer = document.getElementById('cart-items');
+        cartContainer.innerHTML = '';  // Clear previous contents
+
+        if (items.length === 0) {
+            cartContainer.innerHTML = '<p>No items in your cart.</p>';
+        } else {
+            items.forEach(item => {
+                const itemElement = document.createElement('div');
+                itemElement.className = 'product';
+                itemElement.innerHTML = `
+                    <img src="${item.imageUrl}" alt="Product Image" style="width:100%; height:auto;">
+                    <p><strong>${item.name}</strong></p>
+                    <p>Price: $${item.price}</p>
+                    <p>Quantity: ${item.quantity}</p>
+                    <button onclick="removeFromCart(${item.product_id})">Remove</button>
+                `;
+                cartContainer.appendChild(itemElement);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Error fetching cart items:', error);
+        document.getElementById('cart-items').innerHTML = '<p>Error loading cart items.</p>';
+    });
+}
+
+function removeFromCart(productId) {
+    fetch(`http://localhost:3000/cart/${productId}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not OK');
         }
         return response.json();
     })
     .then(data => {
-        const productList = document.getElementById('product-list');
-        productList.innerHTML = ''; // Clear the initial content
-        data.slice(0, 6).forEach(product => {
-            const productDiv = document.createElement('div');
-            productDiv.className = 'col-4 product';
-            productDiv.innerHTML = `
-                <img src="${product.imageUrl}" alt="${product.name}" style="width:100%;">
-                <h4>${product.name}</h4>
-                <div class="rating">
-                    <i class="fa fa-star"></i>
-                    <i class="fa fa-star"></i>
-                    <i class="fa fa-star"></i>
-                    <i class="fa fa-star"></i>
-                    <i class="fa fa-star-o"></i>
-                </div>
-                <p>Price: $${product.price}</p>
-                <button onclick="addToCart('${product.name}', ${product.price})">Add to Cart</button>
-            `;
-            productList.appendChild(productDiv);
-        });
+        console.log(data.message); // Log success message
+        alert('Item removed successfully.');
+        fetchCartItems(); // Refresh the cart items
     })
     .catch(error => {
-        console.error('Failed to fetch products:', error);
-        document.getElementById('product-list').innerHTML = '<p>Error loading products. Please check the console for more details.</p>';
+        console.error('Error removing cart item:', error);
+        alert('Failed to remove item.');
     });
-});
+}
 
-function addToCart(productName, price) {
-    alert(`Added ${productName} at $${price} to cart`);
+function checkout() {
+    alert('Proceed to checkout.');
 }
 </script>
+
 </body>
 </html>

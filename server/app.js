@@ -1,86 +1,70 @@
-// const express = require('express');
-// const app = express();
-// const PORT = 3000;
-
-// app.use(express.static('../public')); // Serve static files from the public directory
-
-// app.listen(PORT, () => {
-//     console.log(`Server running on http://localhost:${PORT}`);
-// });
 const express = require('express');
-const oracledb = require('oracledb');
+const mysql = require('mysql2');
+const cors = require('cors');
+const bcrypt = require('bcrypt');
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
+
+const pool = mysql.createPool({
+    host: 'localhost',
+    user: 'root',
+    password: 'jisquz-hatdod-1gyqVu',
+    database: 'ecomstore',
+    port: 3306
+});
 
 app.use(express.json());
+app.use(cors());
 
-async function init() {
-  try {
-    await oracledb.createPool({
-      user: 'your_username',
-      password: 'your_password',
-      connectionString: 'your_connection_string',
-      poolAlias: 'ecommerce'
+app.get('/products', (req, res) => {
+    pool.query('SELECT * FROM products', (err, results) => {
+        if (err) {
+            console.error('Database query error:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(results);
     });
-    console.log('Connection Pool Created');
-  } catch (err) {
-    console.error('Database connection error: ', err.message);
-  }
-}
-
-// app.get('/products', async (req, res) => {
-//   let connection;
-//   try {
-//     connection = await oracledb.getConnection('ecommerce');
-//     const result = await connection.execute(`SELECT * FROM products`);
-//     res.json(result.rows);
-//   } catch (err) {
-//     res.status(500).send('Error fetching products');
-//   } finally {
-//     if (connection) {
-//       try {
-//         await connection.close();
-//       } catch (err) {
-//         console.error(err);
-//       }
-//     }
-//   }
-// });
-app.get('/products/:id', async (req, res) => {
-    // Implement fetching a single product by id
-    res.json({ id: req.params.id, name: "Sample Product", description: "This is a sample description.", price: 99.99 });
 });
 
-app.get('/product.html', (req, res) => {
-    res.sendFile('path/to/public/product.html');
-});
-
-
-app.post('/order', async (req, res) => {
-  let connection;
-  const { productId, quantity } = req.body;
-  try {
-    connection = await oracledb.getConnection('ecommerce');
-    await connection.execute(
-      `INSERT INTO orders (product_id, quantity) VALUES (:productId, :quantity)`,
-      [productId, quantity],
-      { autoCommit: true }
-    );
-    res.send('Order placed successfully');
-  } catch (err) {
-    res.status(500).send('Error placing order');
-  } finally {
-    if (connection) {
-      try {
-        await connection.close();
-      } catch (err) {
-        console.error(err);
-      }
+app.get('/cart', async (req, res) => {
+    try {
+        const [rows] = await pool.promise().query('SELECT * FROM cart');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).send({ error: 'Error fetching cart items' });
     }
+});
+
+app.post('/cart', async (req, res) => {
+    console.log("Received request:", req.body);
+    const { productId, quantity } = req.body;
+    try {
+        const [existingCart] = await pool.promise().query('SELECT * FROM cart WHERE product_id = ?', [productId]);
+        if (existingCart.length > 0) {
+            const newQuantity = existingCart[0].quantity + quantity;
+            await pool.promise().query('UPDATE cart SET quantity = ? WHERE product_id = ?', [newQuantity, productId]);
+            res.status(200).send({ message: 'Cart quantity updated' });
+        } else {
+            await pool.promise().query('INSERT INTO cart (product_id, quantity) VALUES (?, ?)', [productId, quantity]);
+            res.status(201).send({ message: 'Item added to cart' });
+        }
+    } catch (err) {
+        res.status(500).send({ error: 'Error updating cart' });
+    }
+});
+
+// Remove an item from the cart
+app.delete('/cart/:productId', async (req, res) => {
+  const { productId } = req.params;
+  try {
+      await pool.promise().query('DELETE FROM cart WHERE product_id = ?', [productId]);
+      res.status(200).send({ message: 'Item removed from cart' });
+  } catch (err) {
+      res.status(500).send({ error: 'Error removing item from cart' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  init();
+    console.log(`Server running on http://localhost:${PORT}`);
 });
